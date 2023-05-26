@@ -1,25 +1,40 @@
 package graph;
 
 public class PointT {
-    private Point point; 
-    private double t; 
+    private Point point;
+    private double t;
 
-    public PointT(Point p, double t){
+    /**
+     * Creates an object with a point associated to a time t
+     * 
+     * @param p
+     * @param t
+     */
+    public PointT(Point p, double t) {
         this.point = p;
         this.t = t;
     }
 
-    public double getT(){
+    /**
+     * @return double
+     */
+    public double getT() {
         return this.t;
     }
 
-    public Point getPoint(){
+    /**
+     * @return Point
+     */
+    public Point getPoint() {
         return this.point;
     }
 
+    /**
+     * @return String
+     */
     @Override
     public String toString() {
-        return "[ "+this.t+" : "+this.point.getId()+" ]";
+        return "[ " + this.t + " : " + this.point.getId() + " ]";
     }
 
 }

@@ -13,6 +13,10 @@ import ilog.concert.IloNumExpr;
 import ilog.concert.IloNumVar;
 import ilog.cplex.IloCplex;
 
+/**
+ * Class used to model aircraft specific parts (for instance flow conservation
+ * specific to each aircraft)
+ */
 public class AircraftModelized {
 
     public int id;
@@ -30,20 +34,39 @@ public class AircraftModelized {
 
     private double tMin;
 
-    public AircraftModelized(int id, Graph g, IloCplex cplex, int m, Point arr, Point dep) throws IloException{
+    /**
+     * Constructs the object
+     * 
+     * @param id    Id of the aircraft
+     * @param g     Graph used
+     * @param cplex Instance of the model
+     * @param m     Number of edges in the graph
+     * @param arr   Destination point
+     * @param dep   Starting point
+     * @throws IloException
+     */
+    public AircraftModelized(int id, Graph g, IloCplex cplex, int m, Point arr, Point dep) throws IloException {
         this.id = id;
         this.dep = dep;
         this.end = arr;
-        initialize(g,cplex,m,arr,dep);
-        computeTmin(g, arr,  dep) ;
-        //tMin = 0.;
+        initialize(g, cplex, m, arr, dep); // Model for the aircraft
+        // computeTmin(g, arr, dep) ; // Compute the ref time in case of fairness
+        // consideration
+        this.tMin = 0;
     }
 
+    /**
+     * Constructs the model for the aircraft specific parts
+     * 
+     * @param g
+     * @param cplex
+     * @param m
+     * @param arr
+     * @param dep
+     * @throws IloException
+     */
+    private void initialize(Graph g, IloCplex cplex, int m, Point arr, Point dep) throws IloException {
 
-
-    private void initialize(Graph g, IloCplex cplex, int m, Point arr, Point dep) throws IloException{
-
-        
         Set<Point> points = g.getPoints();
 
         this.varOut = new HashMap<>();
@@ -62,11 +85,11 @@ public class AircraftModelized {
         int i = 0;
         for (Point p : points) {
 
-            for (Edge e : g.getAdj().get(p)) {
+            for (Edge e : g.getAdj().get(p)) { // creates a variable for each edge (x(u,v,i))
                 String name = "x_" + this.id + "_" + p.getId() + "_" + e.getP().getId();
                 this.vars[i] = cplex.intVar(0, 1, name);
                 this.costs[i] = e.getWeight();
-                times[i]=e.getTime();
+                times[i] = e.getTime();
 
                 this.varOut.get(p).add(vars[i]);
                 this.varIn.get(e.getP()).add(vars[i]);
@@ -74,12 +97,12 @@ public class AircraftModelized {
                 this.p2Var.put(vars[i], e.getP());
 
                 i += 1;
-                
+
             }
 
         }
 
-        // Contraintes chemin
+        // Flow conservation constraints
         for (Point p : points) {
             if (!p.equals(arr) && !p.equals(dep)) {
                 int nOut = varOut.get(p).size();
@@ -102,106 +125,143 @@ public class AircraftModelized {
             }
         }
 
-        this.obj = cplex.scalProd(this.vars, this.costs);
-        this.objT = cplex.scalProd(this.vars, times);
+        this.obj = cplex.scalProd(this.vars, this.costs); // expression for aircraft specifc objectif (cost of its path)
+        this.objT = cplex.scalProd(this.vars, times); // expression for time computation
 
-
-        
     }
 
-
-    private void computeTmin(Graph g,Point arr, Point dep){
+    /**
+     * Computes the ref time in case of fairness consideration (Dijkstra algorithm)
+     * 
+     * @param g
+     * @param arr
+     * @param dep
+     */
+    private void computeTmin(Graph g, Point arr, Point dep) {
         Set<Point> points = g.getPoints();
         ArrayList<Point> pointsA = new ArrayList<>();
         pointsA.addAll(points);
-        HashMap<Point,Double> costs = new HashMap<>();
-        for (Point p : pointsA){
-            if (p.equals(dep)){
-                costs.put(p,0.);
-            }
-            else{
-                costs.put(p,Double.MAX_VALUE);
+        HashMap<Point, Double> costs = new HashMap<>();
+        for (Point p : pointsA) {
+            if (p.equals(dep)) {
+                costs.put(p, 0.);
+            } else {
+                costs.put(p, Double.MAX_VALUE);
             }
         }
 
-        PriorityQueue<Point> pointsQ = new PriorityQueue<>((Point p1, Point p2)-> Double.compare(costs.get(p1),costs.get(p2)));
+        PriorityQueue<Point> pointsQ = new PriorityQueue<>(
+                (Point p1, Point p2) -> Double.compare(costs.get(p1), costs.get(p2)));
         pointsQ.addAll(points);
 
-        while (pointsQ.size()>0){
-            double m = Double.MAX_VALUE;
+        while (pointsQ.size() > 0) {
             Point pMin = pointsQ.poll();
-            /*System.out.println(pMin);
-            System.out.println(g.getAdj().get(pMin).size());
-            
-            System.out.println(g.getAdj().get(pMin).size());*/
-            for (Edge eN : g.getAdj().get(pMin)){
-                //System.out.println("here");
-                if (eN.getTime()+costs.get(pMin)<costs.get(eN.getP())){
-                    costs.put(eN.getP(), eN.getTime()+costs.get(pMin));
-                    //System.out.println("here");
+            for (Edge eN : g.getAdj().get(pMin)) {
+                if (eN.getTime() + costs.get(pMin) < costs.get(eN.getP())) {
+                    costs.put(eN.getP(), eN.getTime() + costs.get(pMin));
+
                 }
             }
-            //pointsA.remove(pMin);
-            if (pMin.equals(arr)){
+            if (pMin.equals(arr)) {
                 break;
             }
         }
-        System.out.println(costs.get(arr));
-        this.tMin=costs.get(arr);
 
-        
-
-
-
-
+        this.tMin = costs.get(arr);
     }
 
-    
-
+    /**
+     * Returns the ref time in case of fairness consideration
+     * 
+     * @return double
+     */
     public double gettMin() {
         return tMin;
     }
 
-
-
+    /**
+     * Returns the aircraft specific objective
+     * 
+     * @return IloNumExpr
+     */
     public IloNumExpr getObj() {
         return this.obj;
     }
 
+    /**
+     * Returns the expression for aircraft flight time
+     * 
+     * @return IloNumExpr
+     */
     public IloNumExpr getObjT() {
         return this.objT;
     }
 
+    /**
+     * Returns aircraft variables
+     * 
+     * @return IloNumVar[]
+     */
     public IloNumVar[] getVars() {
         return this.vars;
     }
 
+    /**
+     * Returns the variables for edges going out the point
+     * 
+     * @param p
+     * @return ArrayList<IloNumVar>
+     */
     public ArrayList<IloNumVar> getVarOut(Point p) {
         return this.varOut.get(p);
     }
 
+    /**
+     * Returns the variables for edges going in the point
+     * 
+     * @param p
+     * @return ArrayList<IloNumVar>
+     */
     public ArrayList<IloNumVar> getVarIn(Point p) {
         return this.varIn.get(p);
     }
 
-    public Point get1(IloNumVar var){
+    /**
+     * Returns the point p1 where the variable is associated to the edge (p1,p2)
+     * 
+     * @param var
+     * @return Point
+     */
+    public Point get1(IloNumVar var) {
         return this.p1Var.get(var);
     }
 
-    public Point get2(IloNumVar var){
+    /**
+     * Returns the point p2 where the variable is associated to the edge (p1,p2)
+     * 
+     * @param var
+     * @return Point
+     */
+    public Point get2(IloNumVar var) {
         return this.p2Var.get(var);
     }
 
-    public Point getDep(){
+    /**
+     * Returns the starting point
+     * 
+     * @return Point
+     */
+    public Point getDep() {
         return this.dep;
     }
 
-    public Point getEnd(){
+    /**
+     * Returns the final point
+     * 
+     * @return Point
+     */
+    public Point getEnd() {
         return this.end;
     }
 
-
-
-
-    
 }

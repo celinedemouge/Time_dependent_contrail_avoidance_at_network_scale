@@ -6,24 +6,48 @@ public class Sector {
 
     private ArrayList<Point> points;
 
-    public Sector(ArrayList<Point> points){
-        this.points = points; 
+    /**
+     * Constructs a sector
+     * 
+     * @param points
+     */
+    public Sector(ArrayList<Point> points) {
+        this.points = points;
     }
 
-    public Sector(){
+    /**
+     * Constructs an empty sector
+     */
+    public Sector() {
         this.points = new ArrayList<>();
     }
 
-    public void addPoint(Point p){
+    /**
+     * Adds a point in the sector
+     * 
+     * @param p
+     */
+    public void addPoint(Point p) {
         this.points.add(p);
     }
 
-    public ArrayList<Point> getPoints(){
+    /**
+     * Returns the points in the sector
+     * 
+     * @return ArrayList<Point>
+     */
+    public ArrayList<Point> getPoints() {
         return points;
     }
 
-    public boolean isInSector(Point p){
+    /**
+     * Checks if a point is in the sector
+     * 
+     * @param p
+     * @return boolean
+     */
+    public boolean isInSector(Point p) {
         return this.points.contains(p);
     }
-    
+
 }
